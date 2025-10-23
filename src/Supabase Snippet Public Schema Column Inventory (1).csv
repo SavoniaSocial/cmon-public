@@ -1,0 +1,81 @@
+table_name,column_name,data_type,is_nullable
+assignments,id,uuid,NO
+assignments,strategist_id,uuid,YES
+assignments,creator_id,uuid,YES
+assignments,client_name,text,NO
+assignments,brand_kit_id,uuid,YES
+assignments,status,text,YES
+assignments,created_at,timestamp with time zone,YES
+brand_kits,id,uuid,NO
+brand_kits,strategist_id,uuid,YES
+brand_kits,brand_name,text,NO
+brand_kits,product,text,YES
+brand_kits,uvp,text,YES
+brand_kits,story,text,YES
+brand_kits,positioning,text,YES
+brand_kits,pillars,ARRAY,YES
+brand_kits,messages,ARRAY,YES
+brand_kits,visibility,text,YES
+brand_kits,created_at,timestamp with time zone,YES
+brand_kits,updated_at,timestamp with time zone,YES
+challenge_entries,id,uuid,NO
+challenge_entries,challenge_id,uuid,YES
+challenge_entries,user_id,uuid,YES
+challenge_entries,status,text,YES
+challenge_entries,submission,text,YES
+challenge_entries,score,integer,YES
+challenge_entries,created_at,timestamp with time zone,YES
+challenges,id,uuid,NO
+challenges,title,text,NO
+challenges,description,text,YES
+challenges,reward_type,text,YES
+challenges,reward_value,integer,YES
+challenges,entry_fee,integer,YES
+challenges,is_pro_only,boolean,YES
+challenges,created_at,timestamp with time zone,YES
+messages,id,bigint,NO
+messages,thread_id,uuid,YES
+messages,role,text,YES
+messages,content,text,YES
+messages,created_at,timestamp with time zone,YES
+profiles,id,uuid,NO
+profiles,email,text,YES
+profiles,full_name,text,YES
+profiles,avatar_url,text,YES
+profiles,bio,text,YES
+profiles,role,text,YES
+profiles,is_pro,boolean,YES
+profiles,sparks,integer,YES
+profiles,created_at,timestamp with time zone,YES
+profiles,updated_at,timestamp with time zone,YES
+promo_codes,id,uuid,NO
+promo_codes,code,text,NO
+promo_codes,description,text,YES
+promo_codes,role_upgrade,text,YES
+promo_codes,used_by,uuid,YES
+promo_codes,used_at,timestamp with time zone,YES
+promo_codes,is_active,boolean,YES
+referrals,id,uuid,NO
+referrals,referrer_id,uuid,YES
+referrals,referred_email,text,NO
+referrals,reward_given,boolean,YES
+referrals,created_at,timestamp with time zone,YES
+spark_transactions,id,uuid,NO
+spark_transactions,user_id,uuid,YES
+spark_transactions,type,text,YES
+spark_transactions,amount,integer,NO
+spark_transactions,description,text,YES
+spark_transactions,created_at,timestamp with time zone,YES
+threads,id,uuid,NO
+threads,user_id,uuid,YES
+threads,brand_kit_id,uuid,YES
+threads,client,text,YES
+threads,format,text,YES
+threads,hook,text,YES
+threads,copy,text,YES
+threads,ai_feedback,text,YES
+threads,improved_draft,text,YES
+threads,char_count,integer,YES
+threads,created_at,timestamp with time zone,YES
+threads,prompt,text,YES
+threads,response_text,text,YES
