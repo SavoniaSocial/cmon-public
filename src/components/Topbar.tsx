@@ -7,52 +7,22 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function Topbar({
-  userEmail,
+  profile,
   sparks,
-  brandKitUnlocked,
-  setBrandKitUnlocked,
 }: {
-  userEmail: string;
+  profile: any;
   sparks: number;
-  brandKitUnlocked: boolean;
-  setBrandKitUnlocked: (v: boolean) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isUpgrading, setIsUpgrading] = useState(false);
-  const [promoCode, setPromoCode] = useState("");
-  const [showPromoInput, setShowPromoInput] = useState(false);
 
   async function handleLogout() {
     await supabase.auth.signOut();
     window.location.href = "/";
   }
 
-  async function handleUpgrade() {
-    if (!promoCode) {
-      alert("Please enter a promo code!");
-      return;
-    }
-    setIsUpgrading(true);
-    try {
-      const res = await fetch("/api/auth/upgrade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ promoCode }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert("🎉 You are now Pro! Refreshing...");
-        window.location.reload();
-      } else {
-        alert(data.error || "Upgrade failed.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Server error. Please try again later.");
-    } finally {
-      setIsUpgrading(false);
-    }
-  }
+  const isPro = profile?.is_pro;
+  const name = profile?.full_name || profile?.email?.split("@")[0] || "User";
+  const avatar = profile?.avatar_url || "/default-avatar.png";
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6 shadow-sm">
@@ -62,7 +32,6 @@ export default function Topbar({
         <TopItem icon={<Target />} label="Challenge" />
       </div>
 
-      {/* Profile Section */}
       <div className="relative">
         <motion.button
           whileHover={{ scale: 1.05 }}
@@ -70,22 +39,27 @@ export default function Topbar({
           onClick={() => setMenuOpen(!menuOpen)}
           className="flex items-center gap-3 rounded-full border border-gray-200 bg-white px-3 py-1 shadow-sm hover:bg-purple-50 transition"
         >
-          <Image
-            src="/default-avatar.png"
-            alt="avatar"
-            width={28}
-            height={28}
-            className="rounded-full border border-gray-300"
-          />
+          <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-200">
+  <Image
+    src={profile?.avatar_url || "/default-avatar.png"}
+    alt="avatar"
+    fill
+    className="object-cover rounded-full"
+  />
+</div>
+
           <div className="flex flex-col items-start">
-            <span className="text-sm font-semibold text-gray-800">
-              {userEmail.split("@")[0]}
+            <span className="text-sm font-semibold text-gray-800">{name}</span>
+            <span
+              className={`text-xs font-medium ${
+                isPro ? "text-yellow-600" : "text-gray-500"
+              }`}
+            >
+              {isPro ? "Pro User 🏅" : "Free User"}
             </span>
-            <span className="text-xs text-gray-500">Free User</span>
           </div>
         </motion.button>
 
-        {/* Dropdown */}
         {menuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -100,36 +74,6 @@ export default function Topbar({
               >
                 <User className="h-4 w-4 text-gray-500" /> See Full Profile
               </button>
-
-              {!brandKitUnlocked && (
-                <div className="flex flex-col px-4 py-3">
-                  {!showPromoInput ? (
-                    <button
-                      onClick={() => setShowPromoInput(true)}
-                      className="flex items-center gap-2 text-purple-700 font-medium hover:underline"
-                    >
-                      <Crown className="h-4 w-4 text-yellow-500" /> Upgrade to Pro
-                    </button>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      <input
-                        type="text"
-                        placeholder="Enter promo code"
-                        value={promoCode}
-                        onChange={(e) => setPromoCode(e.target.value)}
-                        className="rounded-md border px-2 py-1 text-sm"
-                      />
-                      <button
-                        onClick={handleUpgrade}
-                        disabled={isUpgrading}
-                        className="rounded-md bg-purple-600 text-white px-2 py-1 text-sm hover:bg-purple-700"
-                      >
-                        {isUpgrading ? "Upgrading..." : "Redeem"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
 
               <button
                 onClick={handleLogout}

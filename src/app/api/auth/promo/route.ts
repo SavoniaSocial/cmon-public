@@ -27,10 +27,8 @@ export async function POST(req: Request) {
 
     if (pErr || !promo) return NextResponse.json({ error: "Invalid promo" }, { status: 400 });
 
-    // apply upgrade
     await serverSupabase.from("profiles").update({ is_pro: true, role: promo.role_upgrade }).eq("id", user.id);
 
-    // mark promo used
     await serverSupabase.from("promo_codes").update({ used_by: user.id, used_at: new Date().toISOString(), is_active: false }).eq("id", promo.id);
 
     return NextResponse.json({ success: true });

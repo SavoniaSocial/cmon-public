@@ -28,26 +28,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Prompt required" }, { status: 400 });
     }
 
-    // Ambil pesan terakhir user sebagai input AI
     const prompt = messages[messages.length - 1].content.trim();
     if (!prompt) {
       return NextResponse.json({ error: "Prompt required" }, { status: 400 });
     }
 
-    // 🔥 kurangi sparks
     const sparkRes = await decrementSparks(userId, 1);
     if (!sparkRes.success) {
       return NextResponse.json({ error: sparkRes.error || "Insufficient sparks" }, { status: 402 });
     }
 
-    // 💬 simpan pesan user
     await serverSupabase.from("messages").insert({
       thread_id: threadId,
       role: "user",
       content: prompt,
     });
 
-    // 🧠 panggil AI
     const aiRes = await generateFeedback(prompt, true);
     if (!aiRes.ok) {
       return NextResponse.json({ error: "AI failed", details: aiRes.error }, { status: 500 });
@@ -55,20 +51,17 @@ export async function POST(req: Request) {
 
     const aiReply = aiRes.plain_text ?? (typeof aiRes === "string" ? aiRes : JSON.stringify(aiRes));
 
-    // 💾 simpan balasan AI
     await serverSupabase.from("messages").insert({
       thread_id: threadId,
       role: "assistant",
       content: aiReply,
     });
 
-    // 🔄 update waktu terakhir thread
     await serverSupabase
       .from("threads")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", threadId);
 
-    // ✅ kirim hasil balik ke frontend
     return NextResponse.json({
       ok: true,
       reply: aiReply,

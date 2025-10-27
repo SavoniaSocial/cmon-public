@@ -24,6 +24,13 @@ const nextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     domains: [], // bisa tambahkan misal 'res.cloudinary.com' kalau pakai CDN
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "aniptiuwjgiunalyjjqd.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
   },
 
   // ✅ Strict mode React (boleh dimatikan kalau ganggu dev)

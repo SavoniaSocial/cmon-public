@@ -30,7 +30,6 @@ const handleStart = async () => {
 
   setLoading(true);
   try {
-    // 1️⃣ buat thread dulu
     const newThread = await createThread({
       client: draft.client,
       format: draft.format,
@@ -39,7 +38,6 @@ const handleStart = async () => {
       brand_kit_id: draft.brand_kit_id || null,
     });
 
-    // 2️⃣ rakit prompt untuk AI (bebas kamu ubah gaya bahasanya)
     const prompt = `
 Brand: ${draft.client}
 Format: ${draft.format}
@@ -47,18 +45,15 @@ Hook: ${draft.hook}
 Copy: ${draft.copy}
 `;
 
-    // 3️⃣ kirim ke AI
     await sendMessage({
       threadId: newThread.id,
       messages: [{ role: "user", content: prompt }],
       brandKitId: draft.brand_kit_id || null,
     });
 
-    // 4️⃣ refresh sparks dan threads
     await refreshProfile();
     await fetchThreads();
 
-    // 5️⃣ reset form
     setDraft({ client: "", format: "", hook: "", copy: "" });
     onClose();
   } catch (err: any) {
