@@ -1,6 +1,7 @@
+// src/app/dashboard.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -23,40 +24,112 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingData, setLoadingData] = useState(true);
 
+  // 🔹 Draft state (persist ke localStorage)
+  const [draft, setDraft] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("creates_draft");
+      return saved ? JSON.parse(saved) : { client: "", format: "", hook: "", copy: "" };
+    }
+    return { client: "", format: "", hook: "", copy: "" };
+  });
+
+  // 🔹 Autosave setiap kali draft berubah
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("creates_draft", JSON.stringify(draft));
+    }
+  }, [draft]);
+
   useEffect(() => {
     if (!loading && !user) router.replace("/");
   }, [user, loading, router]);
 
+  // fetch profile once
+  const fetchProfile = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) throw profileError;
+      setProfile(profileData);
+    } catch (err) {
+      console.error("Failed to fetch profile:", err);
+    }
+  }, [user]);
+
+  // fetch threads list
+  const fetchThreads = useCallback(async () => {
+    if (!user) return;
+    setLoadingData(true);
+    try {
+      const { data: threadData, error: threadError } = await supabase
+        .from("threads")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (threadError) throw threadError;
+      setThreads(threadData || []);
+    } catch (err) {
+      console.error("Failed to fetch threads:", err);
+      setThreads([]);
+    } finally {
+      setLoadingData(false);
+    }
+  }, [user]);
+
+  // initial load
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
+    if (!user) return;
+    (async () => {
+      await fetchProfile();
+      await fetchThreads();
+    })();
+  }, [user, fetchProfile, fetchThreads]);
+
+  // Realtime listener: listen to changes on threads for this user only
+  useEffect(() => {
+    if (!user) return;
+
+    // create channel name unique per user (optional)
+    const channel = supabase
+      .channel(`realtime-threads-user-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // listen insert, update, delete
+          schema: "public",
+          table: "threads",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          // payload includes: INSERT | UPDATE | DELETE
+          // console.debug("Realtime threads payload:", payload);
+          // fetch fresh threads once change detected
+          fetchThreads().catch((e) => console.error("Realtime fetchThreads err:", e));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      // cleanup the channel subscription when unmount or user change
       try {
-        setLoadingData(true);
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-
-        if (profileError) throw profileError;
-        setProfile(profileData);
-
-        const { data: threadData, error: threadError } = await supabase
-          .from("threads")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (threadError) throw threadError;
-        setThreads(threadData || []);
-      } catch (err) {
-        console.error("❌ Error fetching dashboard data:", err);
-      } finally {
-        setLoadingData(false);
+        supabase.removeChannel(channel);
+      } catch (e) {
+        // older versions might use channel.unsubscribe(); include fallback
+        try {
+          // @ts-ignore
+          channel?.unsubscribe?.();
+        } catch (err) {
+          // ignore
+        }
       }
     };
-    fetchData();
-  }, [user]);
+  }, [user, fetchThreads]);
 
   if (loading || loadingData)
     return (
@@ -77,10 +150,7 @@ export default function DashboardPage() {
       />
 
       <div className="flex flex-1 flex-col">
-        <Topbar
-          profile={profile}
-          sparks={profile?.sparks ?? 0}
-        />
+        <Topbar profile={profile} sparks={profile?.sparks ?? 0} />
 
         <section className="flex flex-1 flex-col overflow-y-auto p-8">
           {active === "threads" && <ThreadList />}
@@ -105,10 +175,13 @@ export default function DashboardPage() {
             className="fixed right-0 top-0 z-50 h-full w-96 border-l border-gray-200 bg-white shadow-xl"
           >
             <AddDraftPanel
-              draft={{}}
-              setDraft={() => {}}
+              draft={draft}
+              setDraft={setDraft}
               sparks={profile?.sparks ?? 0}
-              onClose={() => setAddPanelOpen(false)}
+              onClose={() => {
+                setAddPanelOpen(false);
+                localStorage.removeItem("creates_draft");
+              }}
             />
           </motion.div>
         )}

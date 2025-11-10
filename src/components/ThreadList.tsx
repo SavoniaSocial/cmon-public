@@ -1,4 +1,3 @@
-// src/components/ThreadList.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -47,6 +46,9 @@ export default function ThreadList() {
         brandKitId: activeThread.brand_kit_id || null,
       });
 
+      // optional: kalau mau munculin hasil JSON langsung di console
+      console.log("🧠 AI Reply:", reply);
+
       await refreshProfile();
       await fetchThreads();
       setInput("");
@@ -65,16 +67,21 @@ export default function ThreadList() {
     }
   };
 
+  // Fallback loading
   if (loading) return <p className="text-gray-500">Loading threads...</p>;
 
+  // Tidak ada thread sama sekali
   if (threads.length === 0)
     return (
       <div className="text-gray-600">
         <h2 className="text-xl font-semibold text-purple-700">Threads</h2>
-        <p className="mt-3 text-sm text-gray-500">No threads yet. Start your first draft ✨</p>
+        <p className="mt-3 text-sm text-gray-500">
+          No threads yet. Start your first draft ✨
+        </p>
       </div>
     );
 
+  // Tidak ada thread yang sedang aktif
   if (!activeThread)
     return (
       <div className="text-gray-600">
@@ -83,48 +90,54 @@ export default function ThreadList() {
           {threads.map((t) => (
             <li
               key={t.id}
-              className="rounded-md border border-gray-200 bg-white p-4 shadow-sm cursor-pointer hover:bg-purple-50 relative"
+              className="relative rounded-md border border-gray-200 bg-white p-4 shadow-sm cursor-pointer hover:bg-purple-50"
               onClick={() => setActiveThreadId(t.id)}
             >
-              <div className="flex justify-between">
-                <h3 className="font-semibold text-purple-700">
-                  {t.client} – {t.format}
-                </h3>
-                <span className="text-xs text-gray-400">
-                  {new Date(t.created_at || "").toLocaleString()}
-                </span>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-semibold text-purple-700">
+                    {t.client} – {t.format}
+                  </h3>
+                  <span className="text-xs text-gray-400 block mt-1">
+                    {new Date(t.created_at || "").toLocaleString()}
+                  </span>
+                </div>
+
+                {/* Tombol Delete (dirapihin posisinya) */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteThread(t.id);
+                  }}
+                  className="text-xs text-red-500 hover:underline ml-3"
+                >
+                  Delete
+                </button>
               </div>
+
               <p className="mt-2 text-sm text-gray-700 line-clamp-1">
                 {(t.messages && t.messages.length > 0)
                   ? t.messages[t.messages.length - 1].content
                   : t.copy}
               </p>
-
-              {/* Tombol Delete */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteThread(t.id);
-                }}
-                className="absolute top-2 right-2 text-xs text-red-500 hover:underline"
-              >
-                Delete
-              </button>
             </li>
           ))}
         </ul>
       </div>
     );
 
-  // Chat view
+  // --- ✅ CHAT VIEW ---
   return (
     <div className="flex flex-col h-full">
+      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div>
           <h2 className="text-lg font-semibold text-purple-700">
             {activeThread.client} – {activeThread.format}
           </h2>
-          <p className="text-xs text-gray-500">Sparks left: {profile?.sparks ?? "—"}</p>
+          <p className="text-xs text-gray-500">
+            Sparks left: {profile?.sparks ?? "—"}
+          </p>
         </div>
         <div className="flex gap-2">
           <button
@@ -142,27 +155,76 @@ export default function ThreadList() {
         </div>
       </div>
 
+      {/* Chat Container */}
       <div
         ref={chatContainerRef}
         className="flex-1 overflow-y-auto space-y-3 border rounded-md p-4 bg-white shadow-sm"
       >
-        {(activeThread.messages || []).map((m, idx) => (
-          <motion.div
-            key={idx}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className={`max-w-[80%] p-3 rounded-2xl text-sm break-words ${
-              m.role === "user"
-                ? "ml-auto bg-purple-600 text-white rounded-br-none"
-                : "mr-auto bg-gray-100 text-gray-900 rounded-bl-none"
-            }`}
-          >
-            {m.content}
-          </motion.div>
-        ))}
+        {(() => {
+          const msgs = activeThread.messages || [];
+
+          // ⚡ filter supaya cuma AI terakhir aja yang tampil (hapus echo singkat)
+          const filteredMsgs = msgs.filter((m, idx) => {
+            if (m.role !== "assistant") return true;
+            const nextAssistant = msgs.slice(idx + 1).find((x) => x.role === "assistant");
+            return !nextAssistant;
+          });
+
+          return filteredMsgs.map((m, idx) => {
+            let displayText = m.content;
+            let parsed: any = null;
+
+            try {
+              parsed = JSON.parse(m.content);
+              if (parsed) {
+                if (parsed.format === "slides" || parsed.slides) {
+                  const slides = parsed.slides?.join("\n\n• ") ?? "";
+                  displayText = `🎞️ ${parsed.format?.toUpperCase() || "SLIDES"}\n• ${slides}`;
+                } else if (parsed.text) {
+                  displayText = parsed.text;
+                }
+
+                if (parsed.notes) {
+                  displayText += `\n\n📝 ${parsed.notes}`;
+                }
+
+                if (parsed.key_message_used) {
+                  displayText += `\n\n🎯 Key Message: ${parsed.key_message_used}`;
+                }
+              }
+            } catch {
+              // not JSON
+            }
+
+            const isUser = m.role === "user";
+
+            return (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className={`max-w-[80%] p-3 rounded-2xl text-sm break-words ${
+                  isUser
+                    ? "ml-auto bg-purple-600 text-white rounded-br-none whitespace-pre-wrap"
+                    : "mr-auto bg-gray-100 text-gray-900 rounded-bl-none"
+                }`}
+              >
+                {/* 🧩 Render dengan HTML supaya **bold** tampil tebal */}
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: displayText
+                      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                      .replace(/\n/g, "<br>"),
+                  }}
+                />
+              </motion.div>
+            );
+          });
+        })()}
       </div>
 
+      {/* Input */}
       <div className="mt-3 flex gap-2">
         <input
           type="text"

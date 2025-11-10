@@ -40,13 +40,13 @@ export default function Topbar({
           className="flex items-center gap-3 rounded-full border border-gray-200 bg-white px-3 py-1 shadow-sm hover:bg-purple-50 transition"
         >
           <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-200">
-  <Image
-    src={profile?.avatar_url || "/default-avatar.png"}
-    alt="avatar"
-    fill
-    className="object-cover rounded-full"
-  />
-</div>
+            <Image
+              src={profile?.avatar_url || "/default-avatar.png"}
+              alt="avatar"
+              fill
+              className="object-cover rounded-full"
+            />
+          </div>
 
           <div className="flex flex-col items-start">
             <span className="text-sm font-semibold text-gray-800">{name}</span>

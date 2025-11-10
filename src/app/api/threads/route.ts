@@ -1,6 +1,6 @@
-// src/app/api/threads/route.ts
 import { NextResponse } from "next/server";
 import { serverSupabase } from "@/lib/serverSupabase";
+import { generateFeedback } from "@/lib/aiEngine";
 
 async function getUserFromAuthHeader(req: Request) {
   const auth = req.headers.get("authorization") || "";
@@ -14,7 +14,8 @@ async function getUserFromAuthHeader(req: Request) {
 export async function GET(req: Request) {
   try {
     const user = await getUserFromAuthHeader(req);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data, error } = await serverSupabase
       .from("threads")
@@ -26,49 +27,109 @@ export async function GET(req: Request) {
     return NextResponse.json({ threads: data });
   } catch (err: any) {
     console.error("GET /api/threads error:", err);
-    return NextResponse.json({ error: err.message || "Failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || "Failed to load threads" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(req: Request) {
   try {
     const user = await getUserFromAuthHeader(req);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { client, format, hook, copy, brand_kit_id } = body;
+    const { client, format, hook, copy, brand_kit_id, brand } = body;
 
-    // create thread
+    if (!client || !format) {
+      return NextResponse.json(
+        { error: "Please fill client and format" },
+        { status: 400 }
+      );
+    }
+
+    // 🔹 Generate AI feedback
+    const result = await generateFeedback({
+      client,
+      format,
+      platform: "instagram",
+      user_inputs: { hook, copy },
+      brand: brand ?? null,
+    });
+
+    if (!result.ok) {
+      console.error("AI generation failed:", result.error);
+      return NextResponse.json(
+        { error: "AI generation failed", debug: result.plain_text },
+        { status: 500 }
+      );
+    }
+
+    const aiOutput = result.json;
+    const aiText =
+      aiOutput?.text ??
+      aiOutput?.content ??
+      "⚠️ AI gagal menghasilkan respon yang sesuai.";
+
+    // 🔹 Simpan ke threads
     const { data: thread, error: tErr } = await serverSupabase
       .from("threads")
       .insert([
         {
           user_id: user.id,
           brand_kit_id: brand_kit_id || null,
-          client: client || null,
-          format: format || null,
+          client: client.trim(),
+          format: format.trim(),
           hook: hook || null,
-          copy: copy || null,
-          char_count: (copy || "").length,
+          copy: aiText,
+          char_count: aiText.length,
         },
       ])
-      .select()
+      .select("*, messages(*)")
       .single();
 
     if (tErr) throw tErr;
 
-    // insert initial user message (hook + copy combined)
-    const initialContent = `${hook ?? ""}\n\n${copy ?? ""}`.trim();
-    if (initialContent.length > 0) {
-      const { error: mErr } = await serverSupabase.from("messages").insert([
-        { thread_id: thread.id, role: "user", content: initialContent },
-      ]);
-      if (mErr) throw mErr;
-    }
+    // 🔹 Simpan pesan user dan AI
+    const messagesToInsert = [
+      {
+        thread_id: thread.id,
+        role: "user",
+        content: `${hook ?? ""}\n\n${copy ?? ""}`.trim(),
+      },
+      {
+        thread_id: thread.id,
+        role: "assistant",
+        content: aiText,
+      },
+    ].filter((m) => m.content.length > 0);
 
-    return NextResponse.json({ thread });
+    const { data: msgData, error: mErr } = await serverSupabase
+      .from("messages")
+      .insert(messagesToInsert)
+      .select();
+
+    if (mErr) throw mErr;
+    thread.messages = msgData;
+
+    // ✅ Kembalikan hasil dan trigger auto-refresh frontend
+    return NextResponse.json(
+      { ok: true, thread },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+        },
+      }
+    );
   } catch (err: any) {
     console.error("POST /api/threads error:", err);
-    return NextResponse.json({ error: err.message || "Failed to create thread" }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || "Failed to create thread" },
+      { status: 500 }
+    );
   }
 }

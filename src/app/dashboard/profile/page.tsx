@@ -11,7 +11,10 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
-  const [isEditing, setIsEditing] = useState({ full_name: false, email: false });
+  const [isEditing, setIsEditing] = useState({
+    full_name: false,
+    email: false,
+  });
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
@@ -98,18 +101,20 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-gray-50 px-8 py-12 font-[Plus Jakarta Sans] text-gray-800">
       <div className="mx-auto max-w-lg rounded-xl border bg-white p-8 shadow-sm relative">
-        <h1 className="text-2xl font-bold text-purple-700 mb-8">Your Profile 🪄</h1>
+        <h1 className="text-2xl font-bold text-purple-700 mb-8">
+          Your Profile 🪄
+        </h1>
 
         <div className="flex flex-col items-center mb-8 relative">
           <div className="relative">
             <div className="relative w-[120px] h-[120px] rounded-full overflow-hidden border-4 border-purple-100 shadow-sm">
-  <Image
-    src={profile?.avatar_url || "/default-avatar.png"}
-    alt="Avatar"
-    fill
-    className="object-cover rounded-full"
-  />
-</div>
+              <Image
+                src={profile?.avatar_url || "/default-avatar.png"}
+                alt="Avatar"
+                fill
+                className="object-cover rounded-full"
+              />
+            </div>
 
             <label
               htmlFor="avatar-upload"
@@ -131,9 +136,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Info Section */}
         <div className="space-y-5 text-sm">
-          {/* Full Name */}
           <div className="flex justify-between items-center">
             <div>
               <p className="font-semibold text-gray-600">Full Name</p>
@@ -162,7 +165,6 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {/* Email */}
           <div className="flex justify-between items-center">
             <div>
               <p className="font-semibold text-gray-600">Email</p>
@@ -191,7 +193,6 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {/* Status */}
           <div>
             <p className="font-semibold text-gray-600">Status</p>
             <p
@@ -205,21 +206,20 @@ export default function ProfilePage() {
             </p>
           </div>
 
-          {/* Sparks */}
           <div>
             <p className="font-semibold text-gray-600">Sparks Left</p>
             <p className="text-gray-800">{profile.sparks}</p>
           </div>
 
-          {/* Timestamps */}
-
           <div>
             <p className="font-semibold text-gray-600">Created: </p>
-            <p className="text-sx text-gray-500 space-y-1"> {new Date(profile.created_at).toLocaleString()}</p>
+            <p className="text-sx text-gray-500 space-y-1">
+              {" "}
+              {new Date(profile.created_at).toLocaleString()}
+            </p>
           </div>
         </div>
 
-        {/* Change Password */}
         <div className="mt-10 text-center">
           <button
             onClick={() => router.push("/dashboard/profile/change-password")}
@@ -229,7 +229,6 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Back */}
         <div className="mt-6 text-right">
           <button
             onClick={() => router.push("/dashboard")}

@@ -1,74 +1,68 @@
-// ✅ AI Feedback (per thread)
 import { NextResponse } from "next/server";
-import { serverSupabase } from "@/lib/serverSupabase";
+import { supabase } from "@/lib/supabaseClient";
+import { getUserFromRequest } from "@/lib/getUserFromRequest";
 import { generateFeedback } from "@/lib/aiEngine";
-import { decrementSparks } from "@/lib/sparkEngine";
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    console.log("🟢 /api/ai-feedback HIT");
+
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      console.error("🚫 Unauthorized user");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const token = authHeader.split(" ")[1];
-    const { data: userData, error: userErr } = await serverSupabase.auth.getUser(token);
-    if (userErr || !userData?.user) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    const userId = userData.user.id;
     const body = await req.json();
-    const { threadId, messages, brandKitId } = body;
+    console.log("📦 Body:", body);
 
-    if (!threadId) {
-      return NextResponse.json({ error: "threadId required" }, { status: 400 });
-    }
-    if (!messages || messages.length === 0) {
-      return NextResponse.json({ error: "Prompt required" }, { status: 400 });
-    }
+    const {
+      threadId,
+      messages,
+      brandKitId,
+      platform,
+      format,
+      user_inputs,
+      continuing,
+      key_message_hint,
+    } = body;
 
-    const prompt = messages[messages.length - 1].content.trim();
-    if (!prompt) {
-      return NextResponse.json({ error: "Prompt required" }, { status: 400 });
-    }
+    const lastUserMessage = messages?.[messages.length - 1]?.content || "";
 
-    const sparkRes = await decrementSparks(userId, 1);
-    if (!sparkRes.success) {
-      return NextResponse.json({ error: sparkRes.error || "Insufficient sparks" }, { status: 402 });
-    }
+    const result = await generateFeedback(
+      {
+        client: "CMON",
+        format,
+        platform,
+        user_inputs,
+        continuing,
+        key_message_hint,
+        thread_memory: messages.map((m: any) => `${m.role}: ${m.content}`).join("\n"),
+      },
+      false
+    );
 
-    await serverSupabase.from("messages").insert({
-      thread_id: threadId,
-      role: "user",
-      content: prompt,
+    const aiText =
+      result.ok && result.json?.text
+        ? result.json.text
+        : result.plain_text || "⚠️ No AI response";
+
+    // ✅ Simpan ke Supabase
+    await supabase.from("messages").insert([
+      {
+        thread_id: threadId,
+        role: "assistant",
+        content: aiText,
+      },
+    ]);
+
+    console.log("🤖 AI:", aiText);
+    return new Response(aiText, {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
     });
-
-    const aiRes = await generateFeedback(prompt, true);
-    if (!aiRes.ok) {
-      return NextResponse.json({ error: "AI failed", details: aiRes.error }, { status: 500 });
-    }
-
-    const aiReply = aiRes.plain_text ?? (typeof aiRes === "string" ? aiRes : JSON.stringify(aiRes));
-
-    await serverSupabase.from("messages").insert({
-      thread_id: threadId,
-      role: "assistant",
-      content: aiReply,
-    });
-
-    await serverSupabase
-      .from("threads")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("id", threadId);
-
-    return NextResponse.json({
-      ok: true,
-      reply: aiReply,
-      remaining_sparks: sparkRes.remaining,
-    });
-  } catch (e: any) {
-    console.error("[AI Feedback Error]:", e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (err: any) {
+    console.error("❌ ai-feedback error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

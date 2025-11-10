@@ -21,7 +21,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 1️⃣ Check promo code
   const { data: promo, error: promoError } = await supabase
     .from("promo_codes")
     .select("*")
@@ -33,7 +32,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid or used promo code" }, { status: 400 });
   }
 
-  // 2️⃣ Update profile role
   const { error: updateError } = await supabase
     .from("profiles")
     .update({
@@ -46,7 +44,6 @@ export async function POST(req: Request) {
   if (updateError)
     return NextResponse.json({ error: "Failed to upgrade user" }, { status: 500 });
 
-  // 3️⃣ Mark promo as used
   await supabase
     .from("promo_codes")
     .update({ used_by: user.id, used_at: new Date().toISOString() })

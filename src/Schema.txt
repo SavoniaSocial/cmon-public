@@ -1,0 +1,125 @@
+SCHEMA:
+
+CREATE TABLE public.assignments (\
+  id uuid NOT NULL DEFAULT gen_random_uuid(),\
+  strategist_id uuid,\
+  creator_id uuid,\
+  client_name text NOT NULL,\
+  brand_kit_id uuid,\
+  status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'completed'::text, 'revoked'::text])),\
+  created_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT assignments_pkey PRIMARY KEY (id),\
+  CONSTRAINT assignments_strategist_id_fkey FOREIGN KEY (strategist_id) REFERENCES public.profiles(id),\
+  CONSTRAINT assignments_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.profiles(id),\
+  CONSTRAINT assignments_brand_kit_id_fkey FOREIGN KEY (brand_kit_id) REFERENCES public.brand_kits(id)\
+);\
+CREATE TABLE public.brand_kits (\
+  id uuid NOT NULL DEFAULT gen_random_uuid(),\
+  strategist_id uuid,\
+  brand_name text NOT NULL,\
+  product text,\
+  uvp text,\
+  story text,\
+  positioning text,\
+  pillars ARRAY,\
+  messages ARRAY,\
+  visibility text DEFAULT 'private'::text CHECK (visibility = ANY (ARRAY['private'::text, 'public'::text])),\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT brand_kits_pkey PRIMARY KEY (id),\
+  CONSTRAINT brand_kits_strategist_id_fkey FOREIGN KEY (strategist_id) REFERENCES public.profiles(id)\
+);\
+CREATE TABLE public.challenge_entries (\
+  id uuid NOT NULL DEFAULT gen_random_uuid(),\
+  challenge_id uuid,\
+  user_id uuid,\
+  status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'completed'::text, 'rejected'::text])),\
+  submission text,\
+  score integer,\
+  created_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT challenge_entries_pkey PRIMARY KEY (id),\
+  CONSTRAINT challenge_entries_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id),\
+  CONSTRAINT challenge_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)\
+);\
+CREATE TABLE public.challenges (\
+  id uuid NOT NULL DEFAULT gen_random_uuid(),\
+  title text NOT NULL,\
+  description text,\
+  reward_type text DEFAULT 'points'::text CHECK (reward_type = ANY (ARRAY['points'::text, 'money'::text])),\
+  reward_value integer DEFAULT 0,\
+  entry_fee integer DEFAULT 0,\
+  is_pro_only boolean DEFAULT false,\
+  created_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT challenges_pkey PRIMARY KEY (id)\
+);\
+CREATE TABLE public.messages (\
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,\
+  thread_id uuid,\
+  role text CHECK (role = ANY (ARRAY['user'::text, 'assistant'::text])),\
+  content text,\
+  created_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT messages_pkey PRIMARY KEY (id),\
+  CONSTRAINT messages_thread_id_fkey FOREIGN KEY (thread_id) REFERENCES public.threads(id)\
+);\
+CREATE TABLE public.profiles (\
+  id uuid NOT NULL,\
+  email text UNIQUE,\
+  full_name text,\
+  avatar_url text,\
+  bio text,\
+  role text DEFAULT 'creator'::text CHECK (role = ANY (ARRAY['creator'::text, 'strategist'::text, 'admin'::text])),\
+  is_pro boolean DEFAULT false,\
+  sparks integer DEFAULT 12,\
+  created_at timestamp with time zone DEFAULT now(),\
+  updated_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),\
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)\
+);\
+CREATE TABLE public.promo_codes (\
+  id uuid NOT NULL DEFAULT gen_random_uuid(),\
+  code text NOT NULL UNIQUE,\
+  description text,\
+  role_upgrade text DEFAULT 'strategist'::text CHECK (role_upgrade = ANY (ARRAY['strategist'::text, 'pro'::text])),\
+  used_by uuid,\
+  used_at timestamp with time zone,\
+  is_active boolean DEFAULT true,\
+  CONSTRAINT promo_codes_pkey PRIMARY KEY (id),\
+  CONSTRAINT promo_codes_used_by_fkey FOREIGN KEY (used_by) REFERENCES public.profiles(id)\
+);\
+CREATE TABLE public.referrals (\
+  id uuid NOT NULL DEFAULT gen_random_uuid(),\
+  referrer_id uuid,\
+  referred_email text NOT NULL,\
+  reward_given boolean DEFAULT false,\
+  created_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT referrals_pkey PRIMARY KEY (id),\
+  CONSTRAINT referrals_referrer_id_fkey FOREIGN KEY (referrer_id) REFERENCES public.profiles(id)\
+);\
+CREATE TABLE public.spark_transactions (\
+  id uuid NOT NULL DEFAULT gen_random_uuid(),\
+  user_id uuid,\
+  type text CHECK (type = ANY (ARRAY['use'::text, 'add'::text, 'referral'::text, 'purchase'::text])),\
+  amount integer NOT NULL,\
+  description text,\
+  created_at timestamp with time zone DEFAULT now(),\
+  CONSTRAINT spark_transactions_pkey PRIMARY KEY (id),\
+  CONSTRAINT spark_transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)\
+);\
+CREATE TABLE public.threads (\
+  id uuid NOT NULL DEFAULT gen_random_uuid(),\
+  user_id uuid,\
+  brand_kit_id uuid,\
+  client text,\
+  format text,\
+  hook text,\
+  copy text,\
+  ai_feedback text,\
+  improved_draft text,\
+  char_count integer,\
+  created_at timestamp with time zone DEFAULT now(),\
+  prompt text,\
+  response_text text,\
+  CONSTRAINT threads_pkey PRIMARY KEY (id),\
+  CONSTRAINT threads_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),\
+  CONSTRAINT threads_brand_kit_id_fkey FOREIGN KEY (brand_kit_id) REFERENCES public.brand_kits(id)\
+);}
